@@ -1,9 +1,27 @@
+import os
+import subprocess
+import sys
+
 import pytest
 from typer.testing import CliRunner
 
 from yello.cli import app
 
 runner = CliRunner()
+
+
+def _run_in(*args, cwd, env_extra=None):
+    """Run `python -m yello` in a subprocess from an arbitrary directory."""
+    env = dict(os.environ)
+    if env_extra:
+        env.update(env_extra)
+    return subprocess.run(
+        [sys.executable, "-m", "yello", *args],
+        cwd=str(cwd),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
 
 
 class TestCliSmoke:
@@ -19,6 +37,7 @@ class TestCliSmoke:
             "make:admin",
             "route:list",
             "dev",
+            "init",
             "migrate",
         ):
             assert name in result.output
@@ -137,3 +156,53 @@ class TestProjectFlow:
 
         r = run_cli("migrate", "fresh", "--yes")
         assert r.returncode == 0, r.stderr
+
+    def test_init_end_to_end(self, tmp_path):
+        """`yello init` → migrate → generate → route:list → superuser, entirely
+        through the scaffolded project."""
+        r = _run_in("init", "blog", "--no-install", cwd=tmp_path)
+        assert r.returncode == 0, r.stderr
+
+        project = tmp_path / "blog"
+        env = {"DJANGO_SETTINGS_MODULE": "config.settings"}
+
+        # The generated manage.py must work too (sys.path insert for src/).
+        clean_env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+        r = subprocess.run(
+            [sys.executable, "manage.py", "check"],
+            cwd=str(project),
+            env=clean_env,
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0, r.stderr
+
+        r = _run_in("migrate", "run", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert (project / "db.sqlite3").exists()
+
+        r = _run_in("make:model", "Post", "--domain", "Posts", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert (project / "src/app/Domain/Posts/Models/Post.py").exists()
+        assert "from app.Domain.Posts.Models.Post import Post" in (
+            project / "src/app/models.py"
+        ).read_text()
+
+        assert _run_in("migrate", "make", cwd=project, env_extra=env).returncode == 0
+        r = _run_in("migrate", "run", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+
+        r = _run_in("make:controller", "Post", "--domain", "Posts", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert (project / "src/app/Http/Controllers/PostController.py").exists()
+
+        r = _run_in("route:list", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert "admin/" in r.stdout
+
+        r = _run_in(
+            "make:admin", "--email", "admin@example.com", "--password", "verysecret123",
+            cwd=project, env_extra=env,
+        )
+        assert r.returncode == 0, r.stderr
+        assert "Superuser created" in r.stdout
