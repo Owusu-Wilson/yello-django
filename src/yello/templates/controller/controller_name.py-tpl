@@ -1,0 +1,11 @@
+from yello.http.controller import Controller
+from app.Domain.{{ domain }}.Models.{{ model_name }} import {{ model_name }}
+
+
+class {{ model_name }}Controller(Controller):
+    def index(self, request):
+        raise NotImplementedError
+
+
+    def store(self, request):
+        raise NotImplementedError

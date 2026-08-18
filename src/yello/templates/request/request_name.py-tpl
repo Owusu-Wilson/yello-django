@@ -1,0 +1,6 @@
+from yello.http.request import Request
+from rest_framework import serializers
+
+
+class {{ request_name }}(Request):
+    pass  # declare fields here

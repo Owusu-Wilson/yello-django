@@ -1,0 +1,8 @@
+from yello.http.resource import Resource
+from app.Domain.{{ domain }}.Models.{{ model_name }} import {{ model_name }}
+
+
+class {{ resource_name }}(Resource):
+    class Meta:
+        model = {{ model_name }}
+        fields = "__all__"

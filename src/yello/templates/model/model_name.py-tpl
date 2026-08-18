@@ -1,0 +1,7 @@
+from yello.db.models import BaseModel
+from django.db import models
+
+
+class {{ model_name }}(BaseModel):
+    class Meta:
+        verbose_name = "{{ model_name }}"

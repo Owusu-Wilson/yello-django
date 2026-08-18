@@ -1,0 +1,6 @@
+from yello.policy.base import Policy
+
+
+class {{ policy_name }}(Policy):
+    def update(self, user, obj) -> bool:
+        return obj.owner_id == user.id
