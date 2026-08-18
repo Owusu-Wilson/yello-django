@@ -10,6 +10,8 @@ yello-core = {editable = true, path = "."}
 pytest = "*"
 pytest-django = "*"
 django-stubs = "*"
+build = "*"
+twine = "*"
 
 [requires]
 python_version = "3.13"
