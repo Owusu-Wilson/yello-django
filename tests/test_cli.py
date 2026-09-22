@@ -217,6 +217,38 @@ class TestProjectFlow:
         assert r.returncode == 0, r.stderr
         assert "sqlite" in r.stdout.lower()
 
+    def test_migrate_seed_flag_runs_seeder(self, project_dir, run_cli):
+        seeders_dir = project_dir / "src/app/Database/Seeders"
+        seeders_dir.mkdir(parents=True)
+        (seeders_dir / "__init__.py").write_text("")
+        (seeders_dir / "DatabaseSeeder.py").write_text(
+            "from yello.db.seeder import Seeder\n\n\n"
+            "class DatabaseSeeder(Seeder):\n"
+            "    def run(self) -> None:\n"
+            "        print('migrate seeded!')\n"
+        )
+        r = run_cli("migrate", "--seed")
+        assert r.returncode == 0, r.stderr
+        assert "migrate seeded!" in r.stdout
+
+    def test_migrate_fresh_seed_flag_runs_seeder(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
+
+        seeders_dir = project_dir / "src/app/Database/Seeders"
+        seeders_dir.mkdir(parents=True)
+        (seeders_dir / "__init__.py").write_text("")
+        (seeders_dir / "DatabaseSeeder.py").write_text(
+            "from yello.db.seeder import Seeder\n\n\n"
+            "class DatabaseSeeder(Seeder):\n"
+            "    def run(self) -> None:\n"
+            "        print('fresh seeded!')\n"
+        )
+        r = run_cli("migrate:fresh", "--seed", "--yes")
+        assert r.returncode == 0, r.stderr
+        assert "fresh seeded!" in r.stdout
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""

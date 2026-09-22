@@ -17,7 +17,9 @@ class MigrateCommand(Command):
 
         call_command("migrate", interactive=False)
         if seed:
-            self.warn("Seeding is not wired up yet.")
+            from yello.cli.db import run_seed
+
+            run_seed()
 
 
 class MigrateFreshCommand(Command):
@@ -39,7 +41,9 @@ class MigrateFreshCommand(Command):
         call_command("flush", interactive=False)
         call_command("migrate", interactive=False)
         if seed:
-            self.warn("Seeding is not wired up yet.")
+            from yello.cli.db import run_seed
+
+            run_seed()
 
 
 class MigrateRollbackCommand(Command):
