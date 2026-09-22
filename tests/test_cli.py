@@ -306,6 +306,13 @@ class TestProjectFlow:
         assert "id" in r.stdout
         assert "created_at" in r.stdout
 
+    def test_about(self, project_dir, run_cli):
+        r = run_cli("about")
+        assert r.returncode == 0, r.stderr
+        assert "yello" in r.stdout.lower()
+        assert "django" in r.stdout.lower()
+        assert "config.settings" in r.stdout
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""
