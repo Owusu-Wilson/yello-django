@@ -313,6 +313,26 @@ class TestProjectFlow:
         assert "django" in r.stdout.lower()
         assert "config.settings" in r.stdout
 
+    def test_key_generate_writes_env_file(self, project_dir, run_cli):
+        r = run_cli("key:generate")
+        assert r.returncode == 0, r.stderr
+        env_file = project_dir / ".env"
+        assert env_file.exists()
+        assert "DJANGO_SECRET_KEY=" in env_file.read_text()
+
+    def test_key_generate_preserves_other_lines(self, project_dir, run_cli):
+        (project_dir / ".env").write_text("FOO=bar\n")
+        r = run_cli("key:generate")
+        assert r.returncode == 0, r.stderr
+        content = (project_dir / ".env").read_text()
+        assert "FOO=bar" in content
+        assert "DJANGO_SECRET_KEY=" in content
+
+    def test_key_generate_show_does_not_write(self, project_dir, run_cli):
+        r = run_cli("key:generate", "--show")
+        assert r.returncode == 0, r.stderr
+        assert not (project_dir / ".env").exists()
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""
