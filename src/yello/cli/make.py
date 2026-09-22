@@ -207,6 +207,27 @@ class MakeSeederCommand(Command):
         self.info(f"Created {target.relative_to(_project_root())}")
 
 
+class MakeFactoryCommand(Command):
+    """Create a Database/Factories/<Name>Factory.py for a model."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Factory class name, e.g. PostFactory."),
+        domain: str = typer.Option(..., "--domain", "-d", help="PascalCase domain folder under Domain/."),
+    ) -> None:
+        self.bootstrap()
+        app_dir = _src_app_dir(_project_root())
+        model_name = name[: -len("Factory")] if name.endswith("Factory") else name
+        target = app_dir / "Database" / "Factories" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_template(
+            _tpl_path("factory"), target, factory_name=name, model_name=model_name, domain=domain
+        )
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -216,4 +237,5 @@ MAKE_COMMANDS = [
     ("make:admin", MakeAdminCommand().handle),
     ("make:migration", MakeMigrationCommand().handle),
     ("make:seeder", MakeSeederCommand().handle),
+    ("make:factory", MakeFactoryCommand().handle),
 ]

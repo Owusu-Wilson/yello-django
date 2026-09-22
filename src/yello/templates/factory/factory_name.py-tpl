@@ -1,0 +1,9 @@
+from yello.db.factory import Factory
+from app.Domain.{{ domain }}.Models.{{ model_name }} import {{ model_name }}
+
+
+class {{ factory_name }}(Factory):
+    model = {{ model_name }}
+
+    def definition(self) -> dict:
+        raise NotImplementedError
