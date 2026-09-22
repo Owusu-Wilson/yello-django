@@ -15,25 +15,33 @@ app = typer.Typer(
     add_completion=False,
 )
 
+
+def _register(name: str, callback) -> None:
+    """Register a bound ``Command.handle`` method, using its class's
+    docstring as the command's help text (Typer reads ``callback.__doc__``,
+    which is empty on a bound method whose docstring lives on the class)."""
+    app.command(name=name, help=callback.__self__.__doc__)(callback)
+
+
 for name, callback in make.MAKE_COMMANDS:
-    app.command(name=name)(callback)
+    _register(name, callback)
 
 for name, callback in migrate.MIGRATE_COMMANDS:
-    app.command(name=name)(callback)
+    _register(name, callback)
 
 for name, callback in db.DB_COMMANDS:
-    app.command(name=name)(callback)
+    _register(name, callback)
 
-app.command(name="about")(about.AboutCommand().handle)
-app.command(name="key:generate")(key.KeyGenerateCommand().handle)
-app.command(name="tinker")(tinker.TinkerCommand().handle)
-app.command(name="down")(maintenance.DownCommand().handle)
-app.command(name="up")(maintenance.UpCommand().handle)
-app.command(name="model:show")(model.ModelShowCommand().handle)
-app.command(name="route:list")(route.RouteListCommand().handle)
-app.command(name="serve")(serve.ServeCommand().handle)
-app.command(name="dev")(serve.ServeCommand().handle)
-app.command(name="init")(init.InitCommand().handle)
+_register("about", about.AboutCommand().handle)
+_register("key:generate", key.KeyGenerateCommand().handle)
+_register("tinker", tinker.TinkerCommand().handle)
+_register("down", maintenance.DownCommand().handle)
+_register("up", maintenance.UpCommand().handle)
+_register("model:show", model.ModelShowCommand().handle)
+_register("route:list", route.RouteListCommand().handle)
+_register("serve", serve.ServeCommand().handle)
+_register("dev", serve.ServeCommand().handle)
+_register("init", init.InitCommand().handle)
 
 
 if __name__ == "__main__":
