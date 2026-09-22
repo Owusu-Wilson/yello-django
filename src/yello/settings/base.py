@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = "yello_auth.User"
 
 MIDDLEWARE = [
+    "yello.http.maintenance.MaintenanceModeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

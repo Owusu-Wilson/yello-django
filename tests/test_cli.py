@@ -342,6 +342,21 @@ class TestProjectFlow:
         assert r.returncode == 0, r.stderr
         assert "<class 'app.Domain.Posts.Models.Post.Post'>" in r.stdout
 
+    def test_down_then_up(self, project_dir, run_cli):
+        r = run_cli("down", "--message", "Maintenance in progress")
+        assert r.returncode == 0, r.stderr
+        lock_file = project_dir / "storage/framework/maintenance.json"
+        assert lock_file.exists()
+        assert "Maintenance in progress" in lock_file.read_text()
+
+        r = run_cli("up")
+        assert r.returncode == 0, r.stderr
+        assert not lock_file.exists()
+
+        r = run_cli("up")
+        assert r.returncode == 0, r.stderr
+        assert "already up" in r.stdout.lower()
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""
