@@ -299,6 +299,13 @@ class TestProjectFlow:
         assert target.exists()
         assert "class EnsureIsAdmin(Middleware):" in target.read_text()
 
+    def test_model_show(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        r = run_cli("model:show", "Post", "--domain", "Posts")
+        assert r.returncode == 0, r.stderr
+        assert "id" in r.stdout
+        assert "created_at" in r.stdout
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""
