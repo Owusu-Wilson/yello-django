@@ -1,0 +1,8 @@
+from yello.validation.rule import Rule
+
+
+class {{ class_name }}(Rule):
+    message = "The given value is invalid."
+
+    def passes(self, value) -> bool:
+        raise NotImplementedError

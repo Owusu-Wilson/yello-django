@@ -278,6 +278,23 @@ class MakeExceptionCommand(Command):
         self.info(f"Created {target.relative_to(_project_root())}")
 
 
+class MakeRuleCommand(Command):
+    """Create a src/app/Rules/<Name>.py validation rule."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Rule class name, e.g. Even."),
+    ) -> None:
+        self.bootstrap()
+        app_dir = _src_app_dir(_project_root())
+        target = app_dir / "Rules" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_simple_template(_tpl_path("rule"), target, class_name=name)
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -291,4 +308,5 @@ MAKE_COMMANDS = [
     ("make:test", MakeTestCommand().handle),
     ("make:enum", MakeEnumCommand().handle),
     ("make:exception", MakeExceptionCommand().handle),
+    ("make:rule", MakeRuleCommand().handle),
 ]
