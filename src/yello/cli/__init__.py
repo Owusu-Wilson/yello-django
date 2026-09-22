@@ -18,12 +18,13 @@ app = typer.Typer(
 for name, callback in make.MAKE_COMMANDS:
     app.command(name=name)(callback)
 
+for name, callback in migrate.MIGRATE_COMMANDS:
+    app.command(name=name)(callback)
+
 app.command(name="route:list")(route.RouteListCommand().handle)
 app.command(name="serve")(serve.ServeCommand().handle)
 app.command(name="dev")(serve.ServeCommand().handle)
 app.command(name="init")(init.InitCommand().handle)
-
-app.add_typer(migrate.migrate_app)
 
 
 if __name__ == "__main__":

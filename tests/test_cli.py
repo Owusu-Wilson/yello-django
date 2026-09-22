@@ -35,25 +35,30 @@ class TestCliSmoke:
             "make:resource",
             "make:policy",
             "make:admin",
+            "make:migration",
             "route:list",
+            "serve",
             "dev",
             "init",
             "migrate",
+            "migrate:fresh",
+            "migrate:rollback",
+            "migrate:status",
         ):
             assert name in result.output
 
     @pytest.mark.django_db
     def test_migrate_status(self):
-        result = runner.invoke(app, ["migrate", "status"])
+        result = runner.invoke(app, ["migrate:status"])
         assert result.exit_code == 0, result.output
         assert "0001_initial" in result.output
 
     def test_settings_module_autodetected_without_env_var(self, project_dir):
-        """The real-user case: run `yello migrate status` from a project root
+        """The real-user case: run `yello migrate:status` from a project root
         with no DJANGO_SETTINGS_MODULE set, and let detection find it."""
         env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
         r = subprocess.run(
-            [sys.executable, "-m", "yello", "migrate", "status"],
+            [sys.executable, "-m", "yello", "migrate:status"],
             cwd=str(project_dir),
             env=env,
             capture_output=True,
@@ -66,18 +71,6 @@ class TestCliSmoke:
         result = runner.invoke(app, ["route:list"])
         assert result.exit_code == 0, result.output
         assert "admin/" in result.output
-
-    def test_migrate_no_args_is_help(self):
-        result = runner.invoke(app, ["migrate"])
-        assert result.exit_code in (0, 2)
-        assert "make" in result.output
-        assert "rollback" in result.output
-
-    def test_serve_alias_and_dev_both_listed(self):
-        result = runner.invoke(app, ["--help"])
-        assert result.exit_code == 0
-        assert "serve" in result.output
-        assert "dev" in result.output
 
 
 class TestProjectFlow:
@@ -96,15 +89,15 @@ class TestProjectFlow:
         models_file = project_dir / "src/app/models.py"
         assert "from app.Domain.Posts.Models.Post import Post" in models_file.read_text()
 
-        r = run_cli("migrate", "make")
+        r = run_cli("make:migration")
         assert r.returncode == 0, r.stderr
         assert (project_dir / "src/app/migrations/0001_initial.py").exists()
 
-        r = run_cli("migrate", "run")
+        r = run_cli("migrate")
         assert r.returncode == 0, r.stderr
         assert (project_dir / "db.sqlite3").exists()
 
-        r = run_cli("migrate", "status")
+        r = run_cli("migrate:status")
         assert r.returncode == 0, r.stderr
         assert "0001_initial" in r.stdout
 
@@ -145,7 +138,7 @@ class TestProjectFlow:
             assert marker in target.read_text()
 
     def test_make_admin_superuser(self, project_dir, run_cli):
-        r = run_cli("migrate", "run")
+        r = run_cli("migrate")
         assert r.returncode == 0, r.stderr
 
         r = run_cli("make:admin", "--email", "admin@example.com", "--password", "verysecret123")
@@ -159,22 +152,22 @@ class TestProjectFlow:
 
     def test_migrate_rollback(self, project_dir, run_cli):
         assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
-        assert run_cli("migrate", "make").returncode == 0
-        assert run_cli("migrate", "run").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
 
-        r = run_cli("migrate", "rollback", "app")
+        r = run_cli("migrate:rollback", "app")
         assert r.returncode == 0, r.stderr
         assert "app.0001_initial" in r.stdout
 
-        r = run_cli("migrate", "status")
+        r = run_cli("migrate:status")
         assert "app.0001_initial" not in r.stdout
 
     def test_migrate_fresh(self, project_dir, run_cli):
         assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
-        assert run_cli("migrate", "make").returncode == 0
-        assert run_cli("migrate", "run").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
 
-        r = run_cli("migrate", "fresh", "--yes")
+        r = run_cli("migrate:fresh", "--yes")
         assert r.returncode == 0, r.stderr
 
     def test_init_end_to_end(self, tmp_path):
@@ -197,7 +190,7 @@ class TestProjectFlow:
         )
         assert r.returncode == 0, r.stderr
 
-        r = _run_in("migrate", "run", cwd=project, env_extra=env)
+        r = _run_in("migrate", cwd=project, env_extra=env)
         assert r.returncode == 0, r.stderr
         assert (project / "db.sqlite3").exists()
 
@@ -208,8 +201,8 @@ class TestProjectFlow:
             project / "src/app/models.py"
         ).read_text()
 
-        assert _run_in("migrate", "make", cwd=project, env_extra=env).returncode == 0
-        r = _run_in("migrate", "run", cwd=project, env_extra=env)
+        assert _run_in("make:migration", cwd=project, env_extra=env).returncode == 0
+        r = _run_in("migrate", cwd=project, env_extra=env)
         assert r.returncode == 0, r.stderr
 
         r = _run_in("make:controller", "Post", "--domain", "Posts", cwd=project, env_extra=env)

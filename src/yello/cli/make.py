@@ -175,6 +175,21 @@ class MakeAdminCommand(Command):
         call_command("createsuperuser", interactive=True)
 
 
+class MakeMigrationCommand(Command):
+    """Create new migration(s) via ``makemigrations``."""
+
+    def handle(
+        self,
+        app: str = typer.Option(None, "--app", "-a", help="Limit to an app label."),
+        empty: bool = typer.Option(False, "--empty", help="Create an empty migration."),
+    ) -> None:
+        self.bootstrap()
+        from django.core.management import call_command
+
+        args = (app,) if app else ()
+        call_command("makemigrations", *args, empty=empty, interactive=False)
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -182,4 +197,5 @@ MAKE_COMMANDS = [
     ("make:resource", MakeResourceCommand().handle),
     ("make:policy", MakePolicyCommand().handle),
     ("make:admin", MakeAdminCommand().handle),
+    ("make:migration", MakeMigrationCommand().handle),
 ]
