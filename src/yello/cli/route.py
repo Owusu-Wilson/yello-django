@@ -1,8 +1,6 @@
 """yello route:list — list registered URLs."""
 
-import typer
-
-from yello.cli._helpers import _bootstrap_django, console
+from yello.console.command import Command, console
 
 
 def _collect(patterns, prefix: str = ""):
@@ -23,20 +21,21 @@ def _collect(patterns, prefix: str = ""):
     return rows
 
 
-def route_list() -> None:
+class RouteListCommand(Command):
     """List every registered URL pattern."""
-    _bootstrap_django()
-    from django.urls import get_resolver
 
-    from rich.table import Table
+    def handle(self) -> None:
+        self.bootstrap()
+        from django.urls import get_resolver
+        from rich.table import Table
 
-    resolver = get_resolver()
-    rows = _collect(resolver.url_patterns)
+        resolver = get_resolver()
+        rows = _collect(resolver.url_patterns)
 
-    table = Table(title="Registered URLs")
-    table.add_column("Path", style="cyan")
-    table.add_column("Name", style="green")
-    table.add_column("View")
-    for path, name, view in rows:
-        table.add_row(path, name, view)
-    console.print(table)
+        table = Table(title="Registered URLs")
+        table.add_column("Path", style="cyan")
+        table.add_column("Name", style="green")
+        table.add_column("View")
+        for path, name, view in rows:
+            table.add_row(path, name, view)
+        console.print(table)

@@ -48,6 +48,20 @@ class TestCliSmoke:
         assert result.exit_code == 0, result.output
         assert "0001_initial" in result.output
 
+    def test_settings_module_autodetected_without_env_var(self, project_dir):
+        """The real-user case: run `yello migrate status` from a project root
+        with no DJANGO_SETTINGS_MODULE set, and let detection find it."""
+        env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+        r = subprocess.run(
+            [sys.executable, "-m", "yello", "migrate", "status"],
+            cwd=str(project_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0, r.stderr
+        assert "0001_initial" in r.stdout
+
     def test_route_list(self):
         result = runner.invoke(app, ["route:list"])
         assert result.exit_code == 0, result.output
@@ -58,6 +72,12 @@ class TestCliSmoke:
         assert result.exit_code in (0, 2)
         assert "make" in result.output
         assert "rollback" in result.output
+
+    def test_serve_alias_and_dev_both_listed(self):
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "serve" in result.output
+        assert "dev" in result.output
 
 
 class TestProjectFlow:
