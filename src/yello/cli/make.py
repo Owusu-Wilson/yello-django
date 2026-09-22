@@ -295,6 +295,23 @@ class MakeRuleCommand(Command):
         self.info(f"Created {target.relative_to(_project_root())}")
 
 
+class MakeMailCommand(Command):
+    """Create a src/app/Mail/<Name>.py mailable."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Mailable class name, e.g. WelcomeMail."),
+    ) -> None:
+        self.bootstrap()
+        app_dir = _src_app_dir(_project_root())
+        target = app_dir / "Mail" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_simple_template(_tpl_path("mail"), target, class_name=name)
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -309,4 +326,5 @@ MAKE_COMMANDS = [
     ("make:enum", MakeEnumCommand().handle),
     ("make:exception", MakeExceptionCommand().handle),
     ("make:rule", MakeRuleCommand().handle),
+    ("make:mail", MakeMailCommand().handle),
 ]

@@ -1,0 +1,8 @@
+from yello.mail.mailable import Mailable
+
+
+class {{ class_name }}(Mailable):
+    subject = ""
+
+    def build(self) -> dict:
+        raise NotImplementedError
