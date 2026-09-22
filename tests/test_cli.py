@@ -170,6 +170,13 @@ class TestProjectFlow:
         r = run_cli("migrate:fresh", "--yes")
         assert r.returncode == 0, r.stderr
 
+    def test_make_seeder(self, project_dir, run_cli):
+        r = run_cli("make:seeder", "PostSeeder")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Database/Seeders/PostSeeder.py"
+        assert target.exists()
+        assert "class PostSeeder(Seeder):" in target.read_text()
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""

@@ -1,0 +1,6 @@
+from yello.db.seeder import Seeder
+
+
+class {{ seeder_name }}(Seeder):
+    def run(self) -> None:
+        raise NotImplementedError

@@ -190,6 +190,23 @@ class MakeMigrationCommand(Command):
         call_command("makemigrations", *args, empty=empty, interactive=False)
 
 
+class MakeSeederCommand(Command):
+    """Create a Database/Seeders/<Name>.py seeder."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Seeder class name, e.g. PostSeeder."),
+    ) -> None:
+        self.bootstrap()
+        app_dir = _src_app_dir(_project_root())
+        target = app_dir / "Database" / "Seeders" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_template(_tpl_path("seeder"), target, seeder_name=name)
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -198,4 +215,5 @@ MAKE_COMMANDS = [
     ("make:policy", MakePolicyCommand().handle),
     ("make:admin", MakeAdminCommand().handle),
     ("make:migration", MakeMigrationCommand().handle),
+    ("make:seeder", MakeSeederCommand().handle),
 ]
