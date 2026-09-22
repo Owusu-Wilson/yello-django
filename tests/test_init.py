@@ -42,6 +42,11 @@ class TestInit:
         assert "djangorestframework" in content
         assert "yello-core" in content
 
+    def test_writes_yello_config(self, workdir):
+        runner.invoke(app, ["init", "blog", "--no-install"])
+        content = (workdir / "blog/.yello").read_text()
+        assert "DJANGO_SETTINGS_MODULE=config.settings" in content
+
     def test_settings_include_auth_and_app(self, workdir):
         runner.invoke(app, ["init", "blog", "--no-install"])
         content = (workdir / "blog/config/settings.py").read_text()

@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 yello-core = {editable = true, path = "."}
+djangorestframework-stubs = "*"
 
 [dev-packages]
 pytest = "*"
