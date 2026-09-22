@@ -264,6 +264,13 @@ class TestProjectFlow:
         assert target.exists()
         assert "class PostTest(TestCase):" in target.read_text()
 
+    def test_make_enum(self, project_dir, run_cli):
+        r = run_cli("make:enum", "PostStatus")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Enums/PostStatus.py"
+        assert target.exists()
+        assert "class PostStatus(Enum):" in target.read_text()
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""

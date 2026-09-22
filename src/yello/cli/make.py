@@ -244,6 +244,23 @@ class MakeTestCommand(Command):
         self.info(f"Created {target.relative_to(_project_root())}")
 
 
+class MakeEnumCommand(Command):
+    """Create a src/app/Enums/<Name>.py enum."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Enum class name, e.g. PostStatus."),
+    ) -> None:
+        self.bootstrap()
+        app_dir = _src_app_dir(_project_root())
+        target = app_dir / "Enums" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_simple_template(_tpl_path("enum"), target, class_name=name)
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -255,4 +272,5 @@ MAKE_COMMANDS = [
     ("make:seeder", MakeSeederCommand().handle),
     ("make:factory", MakeFactoryCommand().handle),
     ("make:test", MakeTestCommand().handle),
+    ("make:enum", MakeEnumCommand().handle),
 ]
