@@ -333,6 +333,15 @@ class TestProjectFlow:
         assert r.returncode == 0, r.stderr
         assert not (project_dir / ".env").exists()
 
+    def test_tinker_preloads_models_and_exits_on_eof(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
+
+        r = run_cli("tinker", input="Post\n")
+        assert r.returncode == 0, r.stderr
+        assert "<class 'app.Domain.Posts.Models.Post.Post'>" in r.stdout
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""
