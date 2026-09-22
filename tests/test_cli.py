@@ -37,6 +37,14 @@ class TestCliSmoke:
             "make:policy",
             "make:admin",
             "make:migration",
+            "make:seeder",
+            "make:factory",
+            "make:test",
+            "make:enum",
+            "make:exception",
+            "make:rule",
+            "make:mail",
+            "make:middleware",
             "route:list",
             "serve",
             "dev",
@@ -45,8 +53,18 @@ class TestCliSmoke:
             "migrate:fresh",
             "migrate:rollback",
             "migrate:status",
+            "db:seed",
+            "db:wipe",
+            "db:table",
+            "db:show",
+            "model:show",
+            "about",
+            "key:generate",
+            "tinker",
+            "down",
+            "up",
         ):
-            assert name in result.output
+            assert name in result.output, f"{name} missing from --help output"
 
     @pytest.mark.django_db
     def test_migrate_status(self):
