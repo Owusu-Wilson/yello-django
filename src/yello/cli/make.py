@@ -312,6 +312,23 @@ class MakeMailCommand(Command):
         self.info(f"Created {target.relative_to(_project_root())}")
 
 
+class MakeMiddlewareCommand(Command):
+    """Create a src/app/Http/Middleware/<Name>.py middleware class."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Middleware class name, e.g. EnsureIsAdmin."),
+    ) -> None:
+        self.bootstrap()
+        app_dir = _src_app_dir(_project_root())
+        target = app_dir / "Http" / "Middleware" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_simple_template(_tpl_path("middleware"), target, class_name=name)
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -327,4 +344,5 @@ MAKE_COMMANDS = [
     ("make:exception", MakeExceptionCommand().handle),
     ("make:rule", MakeRuleCommand().handle),
     ("make:mail", MakeMailCommand().handle),
+    ("make:middleware", MakeMiddlewareCommand().handle),
 ]

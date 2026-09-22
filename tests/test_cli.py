@@ -292,6 +292,13 @@ class TestProjectFlow:
         assert target.exists()
         assert "class WelcomeMail(Mailable):" in target.read_text()
 
+    def test_make_middleware(self, project_dir, run_cli):
+        r = run_cli("make:middleware", "EnsureIsAdmin")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Http/Middleware/EnsureIsAdmin.py"
+        assert target.exists()
+        assert "class EnsureIsAdmin(Middleware):" in target.read_text()
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""
