@@ -60,7 +60,63 @@ class DbWipeCommand(Command):
         self.info(f"Dropped {len(table_names)} table(s).")
 
 
+class DbTableCommand(Command):
+    """Show the columns of a single database table."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Table name, e.g. app_post."),
+    ) -> None:
+        _bootstrap_django()
+        from django.db import connection
+        from rich.table import Table
+
+        from yello.console.command import console
+
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, name)
+
+        table = Table(title=f"Columns in {name}")
+        table.add_column("Column", style="cyan")
+        table.add_column("Type")
+        table.add_column("Null?")
+        for column in description:
+            table.add_row(column.name, str(column.type_code), "Yes" if column.null_ok else "No")
+        console.print(table)
+
+
+class DbShowCommand(Command):
+    """Show the database connection and every table with its row count."""
+
+    def handle(self) -> None:
+        _bootstrap_django()
+        from django.conf import settings
+        from django.db import connection
+        from rich.table import Table
+
+        from yello.console.command import console
+
+        db_settings = settings.DATABASES["default"]
+        self.line(f"Engine:   {db_settings['ENGINE']}")
+        self.line(f"Database: {db_settings['NAME']}")
+
+        with connection.cursor() as cursor:
+            table_names = connection.introspection.table_names(cursor)
+
+        table = Table(title="Tables")
+        table.add_column("Table", style="cyan")
+        table.add_column("Rows", justify="right")
+        with connection.cursor() as cursor:
+            for name in table_names:
+                cursor.execute(f"SELECT COUNT(*) FROM {connection.ops.quote_name(name)}")
+                count = cursor.fetchone()[0]
+                table.add_row(name, str(count))
+        console.print(table)
+
+
 DB_COMMANDS = [
     ("db:seed", DbSeedCommand().handle),
     ("db:wipe", DbWipeCommand().handle),
+    ("db:table", DbTableCommand().handle),
+    ("db:show", DbShowCommand().handle),
 ]
