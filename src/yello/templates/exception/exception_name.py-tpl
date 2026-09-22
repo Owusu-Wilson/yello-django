@@ -1,0 +1,5 @@
+from yello.exceptions.base import YelloException
+
+
+class {{ class_name }}(YelloException):
+    pass

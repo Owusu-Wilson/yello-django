@@ -1,80 +1,78 @@
-"""yello migrate — database migration shortcuts."""
+"""yello migrate / migrate:* — database migration commands."""
 
 import typer
 
-from yello.cli._helpers import _bootstrap_django, console
-
-migrate_app = typer.Typer(
-    name="migrate",
-    help="Run database migrations.",
-    no_args_is_help=True,
-)
+from yello.console.command import Command
 
 
-@migrate_app.command("make")
-def migrate_make(
-    app: str = typer.Option(None, "--app", "-a", help="Limit to an app label."),
-    empty: bool = typer.Option(False, "--empty", help="Create an empty migration."),
-) -> None:
-    """Create new migration(s) via ``makemigrations``."""
-    _bootstrap_django()
-    from django.core.management import call_command
+class MigrateCommand(Command):
+    """Run pending migrations via ``migrate``."""
 
-    args = ()
-    if app:
-        args = (app,)
-    call_command("makemigrations", *args, empty=empty, interactive=False)
+    def handle(
+        self,
+        seed: bool = typer.Option(False, "--seed", help="Seed the database after migrating."),
+    ) -> None:
+        self.bootstrap()
+        from django.core.management import call_command
 
+        call_command("migrate", interactive=False)
+        if seed:
+            from yello.cli.db import run_seed
 
-@migrate_app.command("run")
-def migrate_run(
-    app: str = typer.Argument(None, help="App label to migrate (optional)."),
-    migration: str = typer.Argument(None, help="Migration name to apply (optional)."),
-) -> None:
-    """Apply migrations via ``migrate``."""
-    _bootstrap_django()
-    from django.core.management import call_command
-
-    args = ()
-    if app:
-        args = (app,)
-    if migration:
-        args = args + (migration,)
-    call_command("migrate", *args, interactive=False)
+            run_seed()
 
 
-@migrate_app.command("rollback")
-def migrate_rollback(
-    app: str = typer.Argument(..., help="App label to roll back."),
-    migration: str = typer.Argument("zero", help="Migration name to roll back to (default: zero)."),
-) -> None:
-    """Roll a migration back via ``migrate <app> <migration>``."""
-    _bootstrap_django()
-    from django.core.management import call_command
-
-    call_command("migrate", app, migration, interactive=False)
-
-
-@migrate_app.command("status")
-def migrate_status() -> None:
-    """Show migration status via ``showmigrations``."""
-    _bootstrap_django()
-    from django.core.management import call_command
-
-    call_command("showmigrations", verbosity=2)
-
-
-@migrate_app.command("fresh")
-def migrate_fresh(
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
-) -> None:
+class MigrateFreshCommand(Command):
     """Flush the database and re-run every migration."""
-    _bootstrap_django()
-    from django.core.management import call_command
 
-    if not yes:
-        if not typer.confirm("This will flush all data and re-run every migration. Continue?"):
+    def handle(
+        self,
+        seed: bool = typer.Option(False, "--seed", help="Seed the database after migrating."),
+        yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+    ) -> None:
+        self.bootstrap()
+        from django.core.management import call_command
+
+        if not yes and not self.confirm(
+            "This will flush all data and re-run every migration. Continue?"
+        ):
             raise typer.Abort()
 
-    call_command("flush", interactive=False)
-    call_command("migrate", interactive=False)
+        call_command("flush", interactive=False)
+        call_command("migrate", interactive=False)
+        if seed:
+            from yello.cli.db import run_seed
+
+            run_seed()
+
+
+class MigrateRollbackCommand(Command):
+    """Roll a migration back via ``migrate <app> <migration>``."""
+
+    def handle(
+        self,
+        app: str = typer.Argument(..., help="App label to roll back."),
+        migration: str = typer.Argument("zero", help="Migration name to roll back to (default: zero)."),
+    ) -> None:
+        self.bootstrap()
+        from django.core.management import call_command
+
+        call_command("migrate", app, migration, interactive=False)
+
+
+class MigrateStatusCommand(Command):
+    """Show migration status via ``showmigrations``."""
+
+    def handle(self) -> None:
+        self.bootstrap()
+        from django.core.management import call_command
+
+        call_command("showmigrations", verbosity=2)
+
+
+MIGRATE_COMMANDS = [
+    ("migrate", MigrateCommand().handle),
+    ("migrate:fresh", MigrateFreshCommand().handle),
+    ("migrate:rollback", MigrateRollbackCommand().handle),
+    ("migrate:status", MigrateStatusCommand().handle),
+]

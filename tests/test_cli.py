@@ -1,9 +1,28 @@
+import os
+import subprocess
+import sys
+
 import pytest
 from typer.testing import CliRunner
 
 from yello.cli import app
 
 runner = CliRunner()
+
+
+def _run_in(*args, cwd, env_extra=None):
+    """Run `python -m yello` in a subprocess from an arbitrary directory."""
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    if env_extra:
+        env.update(env_extra)
+    return subprocess.run(
+        [sys.executable, "-m", "yello", *args],
+        cwd=str(cwd),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
 
 
 class TestCliSmoke:
@@ -17,28 +36,60 @@ class TestCliSmoke:
             "make:resource",
             "make:policy",
             "make:admin",
+            "make:migration",
+            "make:seeder",
+            "make:factory",
+            "make:test",
+            "make:enum",
+            "make:exception",
+            "make:rule",
+            "make:mail",
+            "make:middleware",
             "route:list",
+            "serve",
             "dev",
+            "init",
             "migrate",
+            "migrate:fresh",
+            "migrate:rollback",
+            "migrate:status",
+            "db:seed",
+            "db:wipe",
+            "db:table",
+            "db:show",
+            "model:show",
+            "about",
+            "key:generate",
+            "tinker",
+            "down",
+            "up",
         ):
-            assert name in result.output
+            assert name in result.output, f"{name} missing from --help output"
 
     @pytest.mark.django_db
     def test_migrate_status(self):
-        result = runner.invoke(app, ["migrate", "status"])
+        result = runner.invoke(app, ["migrate:status"])
         assert result.exit_code == 0, result.output
         assert "0001_initial" in result.output
+
+    def test_settings_module_autodetected_without_env_var(self, project_dir):
+        """The real-user case: run `yello migrate:status` from a project root
+        with no DJANGO_SETTINGS_MODULE set, and let detection find it."""
+        env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+        r = subprocess.run(
+            [sys.executable, "-m", "yello", "migrate:status"],
+            cwd=str(project_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0, r.stderr
+        assert "0001_initial" in r.stdout
 
     def test_route_list(self):
         result = runner.invoke(app, ["route:list"])
         assert result.exit_code == 0, result.output
         assert "admin/" in result.output
-
-    def test_migrate_no_args_is_help(self):
-        result = runner.invoke(app, ["migrate"])
-        assert result.exit_code in (0, 2)
-        assert "make" in result.output
-        assert "rollback" in result.output
 
 
 class TestProjectFlow:
@@ -57,15 +108,15 @@ class TestProjectFlow:
         models_file = project_dir / "src/app/models.py"
         assert "from app.Domain.Posts.Models.Post import Post" in models_file.read_text()
 
-        r = run_cli("migrate", "make")
+        r = run_cli("make:migration")
         assert r.returncode == 0, r.stderr
         assert (project_dir / "src/app/migrations/0001_initial.py").exists()
 
-        r = run_cli("migrate", "run")
+        r = run_cli("migrate")
         assert r.returncode == 0, r.stderr
         assert (project_dir / "db.sqlite3").exists()
 
-        r = run_cli("migrate", "status")
+        r = run_cli("migrate:status")
         assert r.returncode == 0, r.stderr
         assert "0001_initial" in r.stdout
 
@@ -106,7 +157,7 @@ class TestProjectFlow:
             assert marker in target.read_text()
 
     def test_make_admin_superuser(self, project_dir, run_cli):
-        r = run_cli("migrate", "run")
+        r = run_cli("migrate")
         assert r.returncode == 0, r.stderr
 
         r = run_cli("make:admin", "--email", "admin@example.com", "--password", "verysecret123")
@@ -120,20 +171,256 @@ class TestProjectFlow:
 
     def test_migrate_rollback(self, project_dir, run_cli):
         assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
-        assert run_cli("migrate", "make").returncode == 0
-        assert run_cli("migrate", "run").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
 
-        r = run_cli("migrate", "rollback", "app")
+        r = run_cli("migrate:rollback", "app")
         assert r.returncode == 0, r.stderr
         assert "app.0001_initial" in r.stdout
 
-        r = run_cli("migrate", "status")
+        r = run_cli("migrate:status")
         assert "app.0001_initial" not in r.stdout
 
     def test_migrate_fresh(self, project_dir, run_cli):
         assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
-        assert run_cli("migrate", "make").returncode == 0
-        assert run_cli("migrate", "run").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
 
-        r = run_cli("migrate", "fresh", "--yes")
+        r = run_cli("migrate:fresh", "--yes")
         assert r.returncode == 0, r.stderr
+
+    def test_make_seeder(self, project_dir, run_cli):
+        r = run_cli("make:seeder", "PostSeeder")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Database/Seeders/PostSeeder.py"
+        assert target.exists()
+        assert "class PostSeeder(Seeder):" in target.read_text()
+
+    def test_db_seed(self, project_dir, run_cli):
+        seeders_dir = project_dir / "src/app/Database/Seeders"
+        seeders_dir.mkdir(parents=True)
+        (seeders_dir / "__init__.py").write_text("")
+        (seeders_dir / "DatabaseSeeder.py").write_text(
+            "from yello.db.seeder import Seeder\n\n\n"
+            "class DatabaseSeeder(Seeder):\n"
+            "    def run(self) -> None:\n"
+            "        print('seeded!')\n"
+        )
+        r = run_cli("db:seed")
+        assert r.returncode == 0, r.stderr
+        assert "seeded!" in r.stdout
+
+    def test_db_wipe(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
+
+        r = run_cli("db:wipe", "--yes")
+        assert r.returncode == 0, r.stderr
+
+        r = run_cli("migrate:status")
+        assert "app.0001_initial" not in r.stdout
+
+    def test_db_table(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
+
+        r = run_cli("db:table", "app_post")
+        assert r.returncode == 0, r.stderr
+        assert "id" in r.stdout
+
+    def test_db_show(self, project_dir, run_cli):
+        assert run_cli("migrate").returncode == 0
+        r = run_cli("db:show")
+        assert r.returncode == 0, r.stderr
+        assert "sqlite" in r.stdout.lower()
+
+    def test_migrate_seed_flag_runs_seeder(self, project_dir, run_cli):
+        seeders_dir = project_dir / "src/app/Database/Seeders"
+        seeders_dir.mkdir(parents=True)
+        (seeders_dir / "__init__.py").write_text("")
+        (seeders_dir / "DatabaseSeeder.py").write_text(
+            "from yello.db.seeder import Seeder\n\n\n"
+            "class DatabaseSeeder(Seeder):\n"
+            "    def run(self) -> None:\n"
+            "        print('migrate seeded!')\n"
+        )
+        r = run_cli("migrate", "--seed")
+        assert r.returncode == 0, r.stderr
+        assert "migrate seeded!" in r.stdout
+
+    def test_migrate_fresh_seed_flag_runs_seeder(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
+
+        seeders_dir = project_dir / "src/app/Database/Seeders"
+        seeders_dir.mkdir(parents=True)
+        (seeders_dir / "__init__.py").write_text("")
+        (seeders_dir / "DatabaseSeeder.py").write_text(
+            "from yello.db.seeder import Seeder\n\n\n"
+            "class DatabaseSeeder(Seeder):\n"
+            "    def run(self) -> None:\n"
+            "        print('fresh seeded!')\n"
+        )
+        r = run_cli("migrate:fresh", "--seed", "--yes")
+        assert r.returncode == 0, r.stderr
+        assert "fresh seeded!" in r.stdout
+
+    def test_make_factory(self, project_dir, run_cli):
+        r = run_cli("make:factory", "PostFactory", "--domain", "Posts")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Database/Factories/PostFactory.py"
+        assert target.exists()
+        assert "class PostFactory(Factory):" in target.read_text()
+
+    def test_make_test(self, project_dir, run_cli):
+        r = run_cli("make:test", "PostTest")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "tests/PostTest.py"
+        assert target.exists()
+        assert "class PostTest(TestCase):" in target.read_text()
+
+    def test_make_enum(self, project_dir, run_cli):
+        r = run_cli("make:enum", "PostStatus")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Enums/PostStatus.py"
+        assert target.exists()
+        assert "class PostStatus(Enum):" in target.read_text()
+
+    def test_make_exception(self, project_dir, run_cli):
+        r = run_cli("make:exception", "InsufficientStockException")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Exceptions/InsufficientStockException.py"
+        assert target.exists()
+        assert "class InsufficientStockException(YelloException):" in target.read_text()
+
+    def test_make_rule(self, project_dir, run_cli):
+        r = run_cli("make:rule", "Even")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Rules/Even.py"
+        assert target.exists()
+        assert "class Even(Rule):" in target.read_text()
+
+    def test_make_mail(self, project_dir, run_cli):
+        r = run_cli("make:mail", "WelcomeMail")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Mail/WelcomeMail.py"
+        assert target.exists()
+        assert "class WelcomeMail(Mailable):" in target.read_text()
+
+    def test_make_middleware(self, project_dir, run_cli):
+        r = run_cli("make:middleware", "EnsureIsAdmin")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "src/app/Http/Middleware/EnsureIsAdmin.py"
+        assert target.exists()
+        assert "class EnsureIsAdmin(Middleware):" in target.read_text()
+
+    def test_model_show(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        r = run_cli("model:show", "Post", "--domain", "Posts")
+        assert r.returncode == 0, r.stderr
+        assert "id" in r.stdout
+        assert "created_at" in r.stdout
+
+    def test_about(self, project_dir, run_cli):
+        r = run_cli("about")
+        assert r.returncode == 0, r.stderr
+        assert "yello" in r.stdout.lower()
+        assert "django" in r.stdout.lower()
+        assert "config.settings" in r.stdout
+
+    def test_key_generate_writes_env_file(self, project_dir, run_cli):
+        r = run_cli("key:generate")
+        assert r.returncode == 0, r.stderr
+        env_file = project_dir / ".env"
+        assert env_file.exists()
+        assert "DJANGO_SECRET_KEY=" in env_file.read_text()
+
+    def test_key_generate_preserves_other_lines(self, project_dir, run_cli):
+        (project_dir / ".env").write_text("FOO=bar\n")
+        r = run_cli("key:generate")
+        assert r.returncode == 0, r.stderr
+        content = (project_dir / ".env").read_text()
+        assert "FOO=bar" in content
+        assert "DJANGO_SECRET_KEY=" in content
+
+    def test_key_generate_show_does_not_write(self, project_dir, run_cli):
+        r = run_cli("key:generate", "--show")
+        assert r.returncode == 0, r.stderr
+        assert not (project_dir / ".env").exists()
+
+    def test_tinker_preloads_models_and_exits_on_eof(self, project_dir, run_cli):
+        assert run_cli("make:model", "Post", "--domain", "Posts").returncode == 0
+        assert run_cli("make:migration").returncode == 0
+        assert run_cli("migrate").returncode == 0
+
+        r = run_cli("tinker", input="Post\n")
+        assert r.returncode == 0, r.stderr
+        assert "<class 'app.Domain.Posts.Models.Post.Post'>" in r.stdout
+
+    def test_down_then_up(self, project_dir, run_cli):
+        r = run_cli("down", "--message", "Maintenance in progress")
+        assert r.returncode == 0, r.stderr
+        lock_file = project_dir / "storage/framework/maintenance.json"
+        assert lock_file.exists()
+        assert "Maintenance in progress" in lock_file.read_text()
+
+        r = run_cli("up")
+        assert r.returncode == 0, r.stderr
+        assert not lock_file.exists()
+
+        r = run_cli("up")
+        assert r.returncode == 0, r.stderr
+        assert "already up" in r.stdout.lower()
+
+    def test_init_end_to_end(self, tmp_path):
+        """`yello init` → migrate → generate → route:list → superuser, entirely
+        through the scaffolded project."""
+        r = _run_in("init", "blog", "--no-install", cwd=tmp_path)
+        assert r.returncode == 0, r.stderr
+
+        project = tmp_path / "blog"
+        env = {"DJANGO_SETTINGS_MODULE": "config.settings"}
+
+        # The generated manage.py must work too (sys.path insert for src/).
+        clean_env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+        r = subprocess.run(
+            [sys.executable, "manage.py", "check"],
+            cwd=str(project),
+            env=clean_env,
+            capture_output=True,
+            text=True,
+        )
+        assert r.returncode == 0, r.stderr
+
+        r = _run_in("migrate", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert (project / "db.sqlite3").exists()
+
+        r = _run_in("make:model", "Post", "--domain", "Posts", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert (project / "src/app/Domain/Posts/Models/Post.py").exists()
+        assert "from app.Domain.Posts.Models.Post import Post" in (
+            project / "src/app/models.py"
+        ).read_text()
+
+        assert _run_in("make:migration", cwd=project, env_extra=env).returncode == 0
+        r = _run_in("migrate", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+
+        r = _run_in("make:controller", "Post", "--domain", "Posts", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert (project / "src/app/Http/Controllers/PostController.py").exists()
+
+        r = _run_in("route:list", cwd=project, env_extra=env)
+        assert r.returncode == 0, r.stderr
+        assert "admin/" in r.stdout
+
+        r = _run_in(
+            "make:admin", "--email", "admin@example.com", "--password", "verysecret123",
+            cwd=project, env_extra=env,
+        )
+        assert r.returncode == 0, r.stderr
+        assert "Superuser created" in r.stdout

@@ -1,0 +1,6 @@
+from yello.http.middleware import Middleware
+
+
+class {{ class_name }}(Middleware):
+    def before(self, request):
+        return None

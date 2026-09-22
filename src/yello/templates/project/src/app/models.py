@@ -1,0 +1,1 @@
+# app/models.py — auto-maintained by `yello make:model`, safe to commit

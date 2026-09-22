@@ -23,6 +23,7 @@ pip install "yello-core @ git+https://github.com/you/yello-core"  # git URL
 
 | Command | Generates / does |
 |---|---|
+| `yello init [name] [--manager pip\|pipenv] [--no-install]` | scaffolds a fresh project (config/, src/app/, manage.py, Pipfile) and installs dependencies |
 | `yello make:model <Name> --domain <Domain>` | `src/app/Domain/<Domain>/Models/<Name>.py` + appends the import to `src/app/models.py` |
 | `yello make:controller <Name> --domain <Domain>` | `src/app/Http/Controllers/<Name>Controller.py` + prints the route snippet |
 | `yello make:request <Name> --domain <Domain>` | `src/app/Http/Requests/<Name>.py` |
@@ -66,6 +67,25 @@ Django. `yello make:model` appends the required import to it automatically:
 # app/models.py — auto-maintained by `yello make:model`, safe to commit
 from app.Domain.Posts.Models.Post import Post
 ```
+
+## Quickstart in a new project
+
+```bash
+pip install yello-core
+yello init myapp                      # scaffolds config/, src/app/, manage.py, Pipfile
+cd myapp
+pipenv install                        # or: pip install django djangorestframework
+export DJANGO_SETTINGS_MODULE=config.settings
+yello migrate run
+yello make:model Post --domain Posts
+yello migrate make && yello migrate run
+yello make:admin --email you@example.com --password <strong-password>
+yello dev
+```
+
+`yello init` creates the full single-app layout. Pass `--manager pip` /
+`--manager pipenv` to choose the package manager, `--no-install` to scaffold
+only, and `--force` to overwrite an existing directory.
 
 ## Quickstart in a throwaway project
 

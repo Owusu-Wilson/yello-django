@@ -6,7 +6,7 @@ import time; Django is bootstrapped lazily per-command via `_bootstrap_django`.
 
 import typer
 
-from yello.cli import dev, make, migrate, route
+from yello.cli import about, db, init, key, maintenance, make, migrate, model, route, serve, tinker
 
 app = typer.Typer(
     name="yello",
@@ -15,13 +15,33 @@ app = typer.Typer(
     add_completion=False,
 )
 
+
+def _register(name: str, callback) -> None:
+    """Register a bound ``Command.handle`` method, using its class's
+    docstring as the command's help text (Typer reads ``callback.__doc__``,
+    which is empty on a bound method whose docstring lives on the class)."""
+    app.command(name=name, help=callback.__self__.__doc__)(callback)
+
+
 for name, callback in make.MAKE_COMMANDS:
-    app.command(name=name)(callback)
+    _register(name, callback)
 
-app.command(name="route:list")(route.route_list)
-app.command(name="dev")(dev.dev)
+for name, callback in migrate.MIGRATE_COMMANDS:
+    _register(name, callback)
 
-app.add_typer(migrate.migrate_app)
+for name, callback in db.DB_COMMANDS:
+    _register(name, callback)
+
+_register("about", about.AboutCommand().handle)
+_register("key:generate", key.KeyGenerateCommand().handle)
+_register("tinker", tinker.TinkerCommand().handle)
+_register("down", maintenance.DownCommand().handle)
+_register("up", maintenance.UpCommand().handle)
+_register("model:show", model.ModelShowCommand().handle)
+_register("route:list", route.RouteListCommand().handle)
+_register("serve", serve.ServeCommand().handle)
+_register("dev", serve.ServeCommand().handle)
+_register("init", init.InitCommand().handle)
 
 
 if __name__ == "__main__":
