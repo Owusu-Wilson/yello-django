@@ -32,6 +32,35 @@ class DbSeedCommand(Command):
         self.info(f"Seeded using {cls}.")
 
 
+class DbWipeCommand(Command):
+    """Drop every table in the database, including migration history."""
+
+    def handle(
+        self,
+        yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt."),
+    ) -> None:
+        _bootstrap_django()
+        if not yes and not self.confirm(
+            "This will drop every table in the database. Continue?"
+        ):
+            raise typer.Abort()
+
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            table_names = connection.introspection.table_names(cursor)
+
+        with connection.schema_editor() as schema_editor:
+            with connection.constraint_checks_disabled():
+                for table in table_names:
+                    schema_editor.execute(
+                        schema_editor.sql_delete_table % {"table": schema_editor.quote_name(table)}
+                    )
+
+        self.info(f"Dropped {len(table_names)} table(s).")
+
+
 DB_COMMANDS = [
     ("db:seed", DbSeedCommand().handle),
+    ("db:wipe", DbWipeCommand().handle),
 ]
