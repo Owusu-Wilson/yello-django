@@ -124,6 +124,20 @@ def _ensure_not_exists(target: Path) -> None:
         _fail(f"Refusing to overwrite existing file: {target}")
 
 
+def _render_simple_template(src_template: Path, target: Path, **context) -> None:
+    """Render a ``.py-tpl`` file into ``target`` via plain ``{{ var }}`` substitution.
+
+    Unlike ``_render_template``, this never invokes Django's ``TemplateCommand``
+    (which validates the *directory* name as if it were an app name — a problem
+    for targets like ``tests/`` whose basename collides with a real importable
+    module/namespace package once the directory exists).
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    text = src_template.read_text()
+    text = re.sub(r"\{\{\s*(\w+)\s*\}\}", lambda m: str(context.get(m.group(1), m.group(0))), text)
+    target.write_text(text)
+
+
 def _render_template(src_template: Path, target: Path, **context) -> None:
     """Render a ``.py-tpl`` file into ``target``.
 

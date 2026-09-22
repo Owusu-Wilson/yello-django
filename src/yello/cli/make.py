@@ -8,6 +8,7 @@ import typer
 from yello.cli._helpers import (
     _ensure_not_exists,
     _project_root,
+    _render_simple_template,
     _render_template,
     _src_app_dir,
 )
@@ -228,6 +229,21 @@ class MakeFactoryCommand(Command):
         self.info(f"Created {target.relative_to(_project_root())}")
 
 
+class MakeTestCommand(Command):
+    """Create a tests/<Name>.py test case."""
+
+    def handle(
+        self,
+        name: str = typer.Argument(..., help="Test class name, e.g. PostTest."),
+    ) -> None:
+        target = _project_root() / "tests" / f"{name}.py"
+
+        _ensure_not_exists(target)
+        _render_simple_template(_tpl_path("test"), target, class_name=name)
+
+        self.info(f"Created {target.relative_to(_project_root())}")
+
+
 MAKE_COMMANDS = [
     ("make:model", MakeModelCommand().handle),
     ("make:controller", MakeControllerCommand().handle),
@@ -238,4 +254,5 @@ MAKE_COMMANDS = [
     ("make:migration", MakeMigrationCommand().handle),
     ("make:seeder", MakeSeederCommand().handle),
     ("make:factory", MakeFactoryCommand().handle),
+    ("make:test", MakeTestCommand().handle),
 ]

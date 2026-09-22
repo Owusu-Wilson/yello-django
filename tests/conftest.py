@@ -101,8 +101,12 @@ def run_cli(project_dir):
     """Run the real `yello` CLI (via `python -m yello`) in a subprocess,
     pointed at the throwaway project's own settings module."""
 
-    def _run(*args, env_extra=None):
+    def _run(*args, env_extra=None, input=None):
         env = dict(os.environ)
+        # Never leak this dev repo's own PYTHONPATH into the scaffolded
+        # project's subprocess — its "tests" package collides with the
+        # throwaway project's own tests/ directory otherwise.
+        env.pop("PYTHONPATH", None)
         env["DJANGO_SETTINGS_MODULE"] = "config.settings"
         if env_extra:
             env.update(env_extra)
@@ -112,6 +116,7 @@ def run_cli(project_dir):
             env=env,
             capture_output=True,
             text=True,
+            input=input,
         )
 
     return _run

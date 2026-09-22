@@ -13,6 +13,7 @@ runner = CliRunner()
 def _run_in(*args, cwd, env_extra=None):
     """Run `python -m yello` in a subprocess from an arbitrary directory."""
     env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
     if env_extra:
         env.update(env_extra)
     return subprocess.run(
@@ -255,6 +256,13 @@ class TestProjectFlow:
         target = project_dir / "src/app/Database/Factories/PostFactory.py"
         assert target.exists()
         assert "class PostFactory(Factory):" in target.read_text()
+
+    def test_make_test(self, project_dir, run_cli):
+        r = run_cli("make:test", "PostTest")
+        assert r.returncode == 0, r.stderr
+        target = project_dir / "tests/PostTest.py"
+        assert target.exists()
+        assert "class PostTest(TestCase):" in target.read_text()
 
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely

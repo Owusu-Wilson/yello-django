@@ -1,0 +1,6 @@
+from django.test import TestCase
+
+
+class {{ class_name }}(TestCase):
+    def test_example(self) -> None:
+        raise NotImplementedError
