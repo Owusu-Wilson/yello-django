@@ -177,6 +177,20 @@ class TestProjectFlow:
         assert target.exists()
         assert "class PostSeeder(Seeder):" in target.read_text()
 
+    def test_db_seed(self, project_dir, run_cli):
+        seeders_dir = project_dir / "src/app/Database/Seeders"
+        seeders_dir.mkdir(parents=True)
+        (seeders_dir / "__init__.py").write_text("")
+        (seeders_dir / "DatabaseSeeder.py").write_text(
+            "from yello.db.seeder import Seeder\n\n\n"
+            "class DatabaseSeeder(Seeder):\n"
+            "    def run(self) -> None:\n"
+            "        print('seeded!')\n"
+        )
+        r = run_cli("db:seed")
+        assert r.returncode == 0, r.stderr
+        assert "seeded!" in r.stdout
+
     def test_init_end_to_end(self, tmp_path):
         """`yello init` → migrate → generate → route:list → superuser, entirely
         through the scaffolded project."""

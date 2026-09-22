@@ -6,7 +6,7 @@ import time; Django is bootstrapped lazily per-command via `_bootstrap_django`.
 
 import typer
 
-from yello.cli import init, make, migrate, route, serve
+from yello.cli import db, init, make, migrate, route, serve
 
 app = typer.Typer(
     name="yello",
@@ -19,6 +19,9 @@ for name, callback in make.MAKE_COMMANDS:
     app.command(name=name)(callback)
 
 for name, callback in migrate.MIGRATE_COMMANDS:
+    app.command(name=name)(callback)
+
+for name, callback in db.DB_COMMANDS:
     app.command(name=name)(callback)
 
 app.command(name="route:list")(route.RouteListCommand().handle)
