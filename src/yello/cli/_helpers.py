@@ -1,6 +1,7 @@
 """Shared helpers for the yello CLI: Django bootstrap + common make:* utilities."""
 
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -11,30 +12,91 @@ from rich.console import Console
 
 console = Console()
 
+_MANAGE_SETDEFAULT_RE = re.compile(
+    r'setdefault\(["\']DJANGO_SETTINGS_MODULE["\']\s*,\s*["\']([^"\']+)["\']'
+)
+_MANAGE_ASSIGN_RE = re.compile(r'DJANGO_SETTINGS_MODULE\s*=\s*["\']([^"\']+)["\']')
+
+
+def _detect_settings_module(project_root: Path) -> str | None:
+    """Find the project's settings module without any env var.
+
+    Precedence: a ``.yello`` config file, then ``manage.py`` (parsed for the
+    ``DJANGO_SETTINGS_MODULE`` assignment), then common settings locations
+    (``config/settings.py``, then any ``<dir>/settings.py`` at the root).
+    """
+    yello_cfg = project_root / ".yello"
+    if yello_cfg.exists():
+        for line in yello_cfg.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("DJANGO_SETTINGS_MODULE"):
+                _, _, value = line.partition("=")
+                return value.strip().strip("\"'") or None
+
+    manage_py = project_root / "manage.py"
+    if manage_py.exists():
+        content = manage_py.read_text()
+        match = _MANAGE_SETDEFAULT_RE.search(content) or _MANAGE_ASSIGN_RE.search(content)
+        if match:
+            return match.group(1)
+
+    config_settings = project_root / "config" / "settings.py"
+    if config_settings.exists():
+        return "config.settings"
+
+    for subdir in sorted(project_root.iterdir()):
+        if subdir.is_dir() and (subdir / "settings.py").exists():
+            return f"{subdir.name}.settings"
+
+    return None
+
+
+def _load_dotenv(project_root: Path) -> None:
+    """Load ``KEY=value`` lines from a ``.env`` file into the environment.
+
+    Never overrides a variable that's already set. Mirrors the manual parsing
+    already used for the ``.yello`` file above — no new dependency.
+    """
+    dotenv = project_root / ".env"
+    if not dotenv.exists():
+        return
+    for line in dotenv.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value.strip().strip("\"'")
+
 
 def _bootstrap_django() -> None:
     """Bootstrap Django against the consuming project's settings module.
 
     Called lazily per-command, never at import time. Idempotent: returns
-    immediately if Django is already configured.
+    immediately if Django is already configured. The settings module comes
+    from ``DJANGO_SETTINGS_MODULE`` or is auto-detected from the project.
     """
     from django.apps import apps
 
     if apps.ready:
         return
 
-    settings_module = os.environ.get("DJANGO_SETTINGS_MODULE")
+    project_root = Path.cwd()
+    _load_dotenv(project_root)
+    settings_module = os.environ.get("DJANGO_SETTINGS_MODULE") or _detect_settings_module(project_root)
     if not settings_module:
         raise typer.BadParameter(
-            "DJANGO_SETTINGS_MODULE is not set. Point it at the consuming "
-            "project's settings, e.g.\n\n"
-            "    DJANGO_SETTINGS_MODULE=config.settings yello migrate status"
+            "Could not find the Django settings module. Set "
+            "DJANGO_SETTINGS_MODULE (e.g. config.settings), or run this "
+            "from a project root that has a manage.py / settings.py."
         )
 
     # Mirror what manage.py does: the project root and the src/app layout must
     # be importable for INSTALLED_APPS ("app", "config", ...) to resolve.
-    cwd = str(Path.cwd())
-    for entry in (cwd, str(Path.cwd() / "src")):
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", settings_module)
+    cwd = str(project_root)
+    for entry in (cwd, str(project_root / "src")):
         if entry not in sys.path:
             sys.path.insert(0, entry)
 
