@@ -21,7 +21,7 @@ for name, callback in make.MAKE_COMMANDS:
 app.command(name="route:list")(route.RouteListCommand().handle)
 app.command(name="serve")(serve.ServeCommand().handle)
 app.command(name="dev")(serve.ServeCommand().handle)
-app.command(name="init")(init.init)
+app.command(name="init")(init.InitCommand().handle)
 
 app.add_typer(migrate.migrate_app)
 

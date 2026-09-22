@@ -13,7 +13,7 @@ from pathlib import Path
 
 import typer
 
-from yello.cli._helpers import console
+from yello.console.command import Command, console
 
 PROJECT_TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "project"
 
@@ -34,11 +34,11 @@ _NEXT_STEPS = """\
 [bold]Next steps[/bold]
   cd {cd}
   export DJANGO_SETTINGS_MODULE=config.settings
-  yello migrate run
+  yello migrate
   yello make:model Post --domain Posts
-  yello migrate make && yello migrate run
+  yello make:migration && yello migrate
   yello make:admin --email you@example.com --password <a-strong-password>
-  yello dev
+  yello serve
 """
 
 
@@ -94,26 +94,31 @@ def _install_dependencies(target: Path, manager: str) -> None:
         console.print("[green]Dependencies installed.[/green]")
 
 
-def init(
-    name: str = typer.Argument(None, help="Project name (created as a subdirectory). Defaults to the current directory."),
-    manager: str = typer.Option(None, "--manager", "-m", help="Package manager: pip or pipenv (default: auto)."),
-    install: bool = typer.Option(True, "--install/--no-install", help="Install dependencies after scaffolding."),
-    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
-) -> None:
+class InitCommand(Command):
     """Scaffold a new Yello project and optionally install its dependencies."""
-    _validate_name(name)
-    target = _target_dir(name)
 
-    console.print(f"[bold]Scaffolding Yello project[/bold] {target}")
-    _ensure_target_usable(target, force)
-    _copy_template(target)
-    (target / ".gitignore").write_text(_GITIGNORE)
-    console.print("[green]Created[/green] config/, src/app/, manage.py, Pipfile")
+    def handle(
+        self,
+        name: str = typer.Argument(None, help="Project name (created as a subdirectory). Defaults to the current directory."),
+        manager: str = typer.Option(None, "--manager", "-m", help="Package manager: pip or pipenv (default: auto)."),
+        install: bool = typer.Option(True, "--install/--no-install", help="Install dependencies after scaffolding."),
+        force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files."),
+    ) -> None:
+        _validate_name(name)
+        target = _target_dir(name)
 
-    if install:
-        _install_dependencies(target, manager or _default_manager())
-    else:
-        console.print("[yellow]Skipping dependency install (--no-install).[/yellow]")
+        console.print(f"[bold]Scaffolding Yello project[/bold] {target}")
+        _ensure_target_usable(target, force)
+        _copy_template(target)
+        (target / ".gitignore").write_text(_GITIGNORE)
+        # Pin the settings module so every yello command auto-detects it.
+        (target / ".yello").write_text("DJANGO_SETTINGS_MODULE=config.settings\n")
+        console.print("[green]Created[/green] config/, src/app/, manage.py, Pipfile, .yello")
 
-    cd = target.name if name else "."
-    console.print(_NEXT_STEPS.format(cd=cd))
+        if install:
+            _install_dependencies(target, manager or _default_manager())
+        else:
+            console.print("[yellow]Skipping dependency install (--no-install).[/yellow]")
+
+        cd = target.name if name else "."
+        console.print(_NEXT_STEPS.format(cd=cd))
